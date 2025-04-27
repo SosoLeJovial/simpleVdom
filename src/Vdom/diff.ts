@@ -1,51 +1,90 @@
 import { Vnode } from "./Vnode";
 
-const diffProps = (oldProps: Record<string, any>, newProps: Record<string, any>) => {
+type PatchType = "TEXT" | "PROPS" | "REPLACE" | "INSERT" | "REMOVE";
+
+interface Patch {
+	type: PatchType;
+	newVnode?: Vnode;
+	props?: { [key: string]: any };
+	text?: string;
+}
+
+
+const diffProps = (oldProps: Record<string, any>, newProps: Record<string, any>): Record<string, any> => {
+	const patches: Record<string, any> = {};
+
 	for (const key in newProps) {
 		if (newProps[key] !== oldProps[key]) {
-			oldProps[key] = newProps[key];
+			patches[key] = newProps[key];
 		}
 	}
 	for (const key in oldProps) {
 		if (!(key in newProps)) {
-			delete oldProps[key];
+			patches[key] = undefined;
 		}
 	}
-};
-
-const diffChildren = (oldChildren: Vnode[], newChildren: Vnode[]) => {
-	const maxLength = Math.max(oldChildren.length, newChildren.length);
-	for (let i = 0; i < maxLength; i++) {
-		if (i < oldChildren.length && i < newChildren.length) {
-			diff(oldChildren[i] as Vnode, newChildren[i] as Vnode);
-		} else if (i < oldChildren.length) {
-			oldChildren.splice(i, 1);
-		} else {
-			oldChildren.push(newChildren[i]);
-		}
-	}
-};
-
-export default function diff(oldVnode: Vnode, newVnode: Vnode): Vnode {
-	if (newVnode === null || newVnode === undefined) {
-		return oldVnode;
-	}
-
-	if (oldVnode.tag === newVnode.tag) {
-		diffProps(oldVnode.props, newVnode.props);
-		if (oldVnode.children && newVnode.children) {
-			diffChildren(oldVnode.children as Vnode[], newVnode.children as Vnode[]);
-		} else if (oldVnode.children && !newVnode.children) {
-			oldVnode.children = [];
-		} else if (!oldVnode.children && newVnode.children) {
-			oldVnode.children = newVnode.children;
-		}
-	}
-	else if (oldVnode.tag !== newVnode.tag) {
-		// Si les balises sont différentes, on remplace l'ancien Vnode par le nouveau
-		oldVnode.tag = newVnode.tag;
-		oldVnode.props = newVnode.props;
-		oldVnode.children = newVnode.children;
-	}
-	return oldVnode;
+	return patches;
 }
+
+const diffChildren = (oldVnode: Vnode, newVnode: Vnode): Patch[] => {
+	let patches: Patch[] = [];
+
+	const oldChildren = oldVnode.children;
+	const newChildren = newVnode.children;
+
+	if ((!oldChildren && !newChildren))
+		return patches;
+	else if (oldVnode.children === newVnode.children)
+		return patches;
+	else if (newChildren) {
+		for (let i = 0; i < newChildren.length; i++) {
+			// Check if oldChildren[i] exists and is a Vnode
+			if (oldChildren && oldChildren[i] && typeof oldChildren[i] === 'object' && 'tag' in oldChildren[i]) {
+				if (oldChildren[i].tag !== newChildren[i].tag) {
+					patches.push({ type: "REPLACE", newVnode: newChildren[i] });
+				}
+				else if (oldChildren[i].tag === newChildren[i].tag) {
+					patches.push(...diff(oldChildren[i], newChildren[i]));
+				}
+			}
+			// add the patch to the patches array
+			if (oldChildren && oldChildren[i]) {
+
+			}
+		}
+	}
+	else if (oldChildren) {
+		for (let i = 0; i < oldChildren.length; i++) {
+			patches.push({ type: "REMOVE" });
+		}
+	}
+
+	return patches;
+}
+
+
+export default function diff(oldVnode: Vnode, newVnode: Vnode): Patch[] {
+	const patches: Patch[] = [];
+
+	if (!oldVnode) {
+		// Si pas d'ancien, on insère
+		patches.push({ type: "INSERT", newVnode });
+	} else if (!newVnode) {
+		// Si pas de nouveau, on supprime
+		patches.push({ type: "REMOVE", });
+	} else if (oldVnode.tag !== newVnode.tag) {
+		// Si le type d'élément change (ex: <div> → <span>), on remplace
+		patches.push({ type: "REPLACE", newVnode });
+	} else {
+		// Vérifier les props si même type
+		const propPatches = diffProps(oldVnode.props, newVnode.props);
+		if (Object.keys(propPatches).length > 0) {
+			patches.push({ type: "PROPS", props: propPatches });
+		}
+		// Vérifier les enfants
+		patches.push(...diffChildren(oldVnode, newVnode));
+	}
+
+	return patches;
+}
+

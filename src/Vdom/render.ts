@@ -2,7 +2,7 @@ import { Vnode } from "./Vnode";
 
 export default function render(vnode: Vnode): Node {
 	// Handle text nodes
-	if (vnode.tag === "text" || vnode.tag === "text") {
+	if (vnode.tag === "text") {
 		const textContent = vnode.props.textContent || "";
 		return document.createTextNode(textContent);
 	}

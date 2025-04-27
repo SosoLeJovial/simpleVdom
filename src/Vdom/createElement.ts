@@ -11,7 +11,7 @@ export default function createElement(
 		// Convertir les chaînes en nœuds texte
 		if (typeof child === "string") {
 			return {
-				name: "text", // ou 'tag' selon votre implémentation finale
+				tag: "text",
 				props: { textContent: child },
 				children: []
 			};
@@ -19,7 +19,7 @@ export default function createElement(
 		// Convertir les nombres et booléens en chaînes puis en nœuds texte
 		if (typeof child === "number" || typeof child === "boolean") {
 			return {
-				name: "text",
+				tag: "text",
 				props: { textContent: String(child) },
 				children: []
 			};
